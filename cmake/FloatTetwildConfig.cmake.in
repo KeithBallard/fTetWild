@@ -1,0 +1,7 @@
+# C++11 threads
+find_package(Threads REQUIRED)
+
+if(NOT TARGET FloatTetwild::FloatTetwild)
+	get_filename_component(FloatTetwild_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
+    include("${FloatTetwild_CMAKE_DIR}/FloatTetwildTargets.cmake")
+endif()

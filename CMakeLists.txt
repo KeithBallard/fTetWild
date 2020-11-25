@@ -1,6 +1,6 @@
 ################################################################################
 cmake_minimum_required(VERSION 3.8)
-project(FloatTetwild)
+project(FloatTetwild VERSION 1.0.0 LANGUAGES CXX)
 ################################################################################
 
 # Detects whether this is a top-level project
@@ -185,3 +185,58 @@ if(FLOAT_TETWILD_TOPLEVEL_PROJECT)
 	enable_testing()
 	add_subdirectory(tests)
 endif()
+
+################
+# Installation #
+################
+
+include(GNUInstallDirs)
+set(INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME})
+
+# Install the target (library and headers)
+install(
+    TARGETS ${PROJECT_NAME}
+    EXPORT ${PROJECT_NAME}Targets
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    INCLUDES DESTINATION include
+)
+
+# Create a ConfigVersion.cmake file
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+
+# Create the package config file for find_package(${PROJECT_NAME})
+configure_package_config_file(
+    ${CMAKE_CURRENT_LIST_DIR}/cmake/${PROJECT_NAME}Config.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
+    INSTALL_DESTINATION ${INSTALL_CONFIGDIR}
+)
+
+# Install the config and config version files
+# Note: if you write custom find modules, add them here
+# Refer to https://github.com/pabloariasal/modern-cmake-sample/blob/cfda7b51ff915409fd61d4f2e75b63032bedb182/libjsonutils/CMakeLists.txt
+install(FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}ConfigVersion.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Targets.cmake
+    DESTINATION ${INSTALL_CONFIGDIR}
+)
+
+###########
+# Exports #
+###########
+
+# Export just the library target (not executable, tests, etc.)
+export(
+    TARGETS ${PROJECT_NAME} warnings_all igl igl_common igl_eigen geogram spdlog fmt json tbb_static
+    FILE ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Targets.cmake
+    NAMESPACE ${PROJECT_NAME}::
+)
+
+# Register package in user's package registry
+export(PACKAGE ${PROJECT_NAME})
