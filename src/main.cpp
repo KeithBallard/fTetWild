@@ -493,6 +493,10 @@ int main(int argc, char** argv)
                    -1,
                    -1);
 
+    Eigen::Matrix<Scalar, Eigen::Dynamic, 3> v_test;
+    Eigen::Matrix<int, Eigen::Dynamic, 3>    f_test;
+    //get_tracked_surface(mesh, v_test, f_test, 0);
+
     timer.start();
     insert_triangles(input_vertices, input_faces, input_tags, mesh, is_face_inserted, tree, false);
     logger().info("cutting {}s", timer.getElapsedTimeInSec());
@@ -517,6 +521,8 @@ int main(int argc, char** argv)
     //                                                   std::count(is_face_inserted.begin(),
     //                                                   is_face_inserted.end(), false));
 
+    get_tracked_surface(mesh, v_test, f_test, 0);
+
     timer.start();
     optimization(
       input_vertices, input_faces, input_tags, is_face_inserted, mesh, tree, {{1, 1, 1, 1}});
@@ -528,6 +534,8 @@ int main(int argc, char** argv)
                    mesh.get_t_num(),
                    mesh.get_max_energy(),
                    mesh.get_avg_energy());
+
+    get_tracked_surface(mesh, v_test, f_test, 0);
 
     timer.start();
     correct_tracked_surface_orientation(mesh, tree);
@@ -610,6 +618,7 @@ int main(int argc, char** argv)
     //        MeshIO::write_mesh(params.output_path, mesh, false);
     //    else
     //        MeshIO::write_mesh(params.output_path + "_" + params.postfix + ".msh", mesh, false);
+    get_tracked_surface(mesh, v_test, f_test, 0);
 
     // fortest
     std::vector<Scalar> colors;

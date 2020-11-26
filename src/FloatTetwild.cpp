@@ -6,17 +6,20 @@
 // obtain one at http://mozilla.org/MPL/2.0/.
 //
 
+#include "FloatTetwild.h"
 #include <floattetwild/AABBWrapper.h>
 #include <floattetwild/FloatTetDelaunay.h>
+#include <floattetwild/LocalOperations.h>
 #include <floattetwild/MeshImprovement.h>
 #include <floattetwild/Parameters.h>
 #include <floattetwild/Simplification.h>
-#include <floattetwild/TriangleInsertion.h>
-#include <floattetwild/LocalOperations.h>
 #include <floattetwild/Statistics.h>
+#include <floattetwild/TriangleInsertion.h>
 #include <geogram/mesh/mesh_reorder.h>
 #include <geogram/mesh/mesh_repair.h>
 #include <igl/Timer.h>
+#include <bitset>
+#include <floattetwild/FastWindingNumber.hpp>
 #include <floattetwild/Logger.hpp>
 #include <floattetwild/MeshIO.hpp>
 #include <floattetwild/Types.hpp>
@@ -24,12 +27,12 @@
 
 namespace floatTetWild {
 
-int tetrahedralization(GEO::Mesh&       sf_mesh,
-                       Parameters       params,
-                       Eigen::MatrixXd& V,
-                       Eigen::MatrixXi& T,
-                       int              boolean_op,
-                       bool             skip_simplify)
+int tetrahedralization_kernel(GEO::Mesh&       sf_mesh,        // in (modified)
+                              std::vector<int> input_tags,     // in
+                              Parameters       params,         // in
+                              int              boolean_op,     // in
+                              bool             skip_simplify,  // in
+                              Mesh&            mesh)                      // out
 {
     if (!sf_mesh.facets.are_simplices()) {
         GEO::mesh_repair(
@@ -52,11 +55,10 @@ int tetrahedralization(GEO::Mesh&       sf_mesh,
         return EXIT_FAILURE;
     }
 
-    AABBWrapper      tree(sf_mesh);
+    AABBWrapper tree(sf_mesh);
 #ifdef NEW_ENVELOPE
     tree.init_sf_tree(input_vertices, input_faces, params.eps);
 #endif
-    std::vector<int> input_tags(input_faces.size(), 0);
 
     if (!params.init(tree.get_sf_diag())) {
         return EXIT_FAILURE;
@@ -67,7 +69,7 @@ int tetrahedralization(GEO::Mesh&       sf_mesh,
     /////////////////////////////////////////////////
     // STEP 1: Preprocessing (mesh simplification) //
     /////////////////////////////////////////////////
-    Mesh mesh;
+
     mesh.params = params;
 
     igl::Timer timer;
@@ -128,7 +130,8 @@ int tetrahedralization(GEO::Mesh&       sf_mesh,
     //////////////////////////////////////
 
     timer.start();
-    optimization(input_vertices, input_faces, input_tags, is_face_inserted, mesh, tree, {{1, 1, 1, 1}});
+    optimization(
+      input_vertices, input_faces, input_tags, is_face_inserted, mesh, tree, {{1, 1, 1, 1}});
     logger().info("mesh optimization {}s", timer.getElapsedTimeInSec());
     logger().info("");
     stats().record(StateInfo::optimization_id,
@@ -144,24 +147,28 @@ int tetrahedralization(GEO::Mesh&       sf_mesh,
 
     timer.start();
     if (boolean_op < 0) {
-//        filter_outside(mesh);
+        //        filter_outside(mesh);
         if (params.smooth_open_boundary) {
             smooth_open_boundary(mesh, tree);
-            for (auto &t: mesh.tets) {
+            for (auto& t : mesh.tets) {
                 if (t.is_outside)
                     t.is_removed = true;
             }
-        } else {
-            if(!params.disable_filtering) {
-                if(params.use_floodfill) {
+        }
+        else {
+            if (!params.disable_filtering) {
+                if (params.use_floodfill) {
                     filter_outside_floodfill(mesh);
-                } else if(params.use_input_for_wn){
+                }
+                else if (params.use_input_for_wn) {
                     filter_outside(mesh, input_vertices, input_faces);
-                } else
+                }
+                else
                     filter_outside(mesh);
             }
         }
-    } else {
+    }
+    else {
         boolean_operation(mesh, boolean_op);
     }
     stats().record(StateInfo::wn_id,
@@ -176,8 +183,6 @@ int tetrahedralization(GEO::Mesh&       sf_mesh,
     logger().info("winding number {}s", timer.getElapsedTimeInSec());
     logger().info("");
 
-    MeshIO::extract_volume_mesh(mesh, V, T, false);
-
     if (!params.log_path.empty()) {
         std::ofstream fout(params.log_path + "_" + params.postfix + ".csv");
         if (fout) {
@@ -188,6 +193,126 @@ int tetrahedralization(GEO::Mesh&       sf_mesh,
     if (!params.envelope_log.empty()) {
         std::ofstream fout(params.envelope_log);
         fout << envelope_log_csv;
+    }
+
+    return 0;
+}
+
+int tetrahedralization(GEO::Mesh&       sf_mesh,
+                       Parameters       params,
+                       Eigen::MatrixXd& VO,
+                       Eigen::MatrixXi& TO,
+                       int              boolean_op,
+                       bool             skip_simplify)
+{
+    Mesh             mesh;
+    std::vector<int> input_tags(sf_mesh.facets.nb(), 0);
+    int              return_code =
+      tetrahedralization_kernel(sf_mesh, input_tags, params, boolean_op, skip_simplify, mesh);
+
+    if (return_code != 0)
+        return return_code;
+
+    MeshIO::extract_volume_mesh(mesh, VO, TO, false);
+
+    return 0;
+}
+
+int tetrahedralization(const std::vector<Eigen::MatrixXd>&  vertices_by_surface,
+                       const std::vector<Eigen::MatrixX3i>& triangles_by_surface,
+                       Parameters                           params,
+                       Eigen::MatrixXd&                     volume_vertices,
+                       Eigen::MatrixXi&                     volume_tetrahedra,
+                       std::vector<unsigned long long>&     volume_attributes)
+{
+    GEO::initialize();
+
+    GEO::Mesh sf_mesh;
+
+    auto n_surfaces = vertices_by_surface.size();
+
+    Eigen::Index n_vertices = 0;
+    for (auto& vertices : vertices_by_surface) {
+        n_vertices += vertices.rows();
+    }
+
+    int              v            = 0;
+    std::vector<int> vert_offsets = {0};
+    sf_mesh.vertices.create_vertices(n_vertices);
+    for (auto surface_index = 0; surface_index < n_surfaces; surface_index++) {
+        for (int i = 0; i < vertices_by_surface[surface_index].rows(); ++i) {
+            GEO::vec3& p = sf_mesh.vertices.point(v++);
+            p[0]         = vertices_by_surface[surface_index](i, 0);
+            p[1]         = vertices_by_surface[surface_index](i, 1);
+            p[2]         = vertices_by_surface[surface_index](i, 2);
+        }
+        vert_offsets.push_back(vertices_by_surface[surface_index].rows());
+    }
+
+    Eigen::Index n_triangles = 0;
+    for (auto& triangles : triangles_by_surface) {
+        n_triangles += triangles.rows();
+    }
+
+    std::vector<int> triangle_tags(n_triangles, 0);
+    int              t = 0;
+    sf_mesh.facets.create_triangles(n_triangles);
+    for (auto surface_index = 0; surface_index < n_surfaces; surface_index++) {
+        auto& o = vert_offsets[surface_index];
+        for (int i = 0; i < triangles_by_surface[surface_index].rows(); ++i) {
+            sf_mesh.facets.set_vertex(t, 0, triangles_by_surface[surface_index](i, 0) + o);
+            sf_mesh.facets.set_vertex(t, 1, triangles_by_surface[surface_index](i, 1) + o);
+            sf_mesh.facets.set_vertex(t, 2, triangles_by_surface[surface_index](i, 2) + o);
+            triangle_tags[t] = surface_index;
+            t++;
+        }
+    }
+
+    Mesh mesh;
+    int  return_code = tetrahedralization_kernel(sf_mesh, triangle_tags, params, -1, false, mesh);
+
+    if (return_code != 0)
+        return return_code;
+
+    MeshIO::extract_volume_mesh(mesh, volume_vertices, volume_tetrahedra, false);
+
+    assert(n_surfaces < std::numeric_limits<unsigned long long>::digits);
+    using RegionBitset = std::bitset<std::numeric_limits<unsigned long long>::digits>;
+
+    Eigen::MatrixXd centroids(mesh.get_t_num(), 3);
+    centroids.setZero();
+    int index = 0;
+    for (size_t i = 0; i < mesh.tets.size(); i++) {
+        if (mesh.tets[i].is_removed)
+            continue;
+        for (int j = 0; j < 4; j++)
+            centroids.row(index) += mesh.tet_vertices[mesh.tets[i][j]].pos.cast<double>();
+        centroids.row(index) /= 4.0;
+        index++;
+    }
+
+    std::vector<RegionBitset> tet_tag_bitsets(index);
+    for (auto surface_index = 0; surface_index < n_surfaces; surface_index++) {
+        Eigen::VectorXd wn;
+        floatTetWild::fast_winding_number(Eigen::MatrixXd(vertices_by_surface[surface_index]),
+                                          Eigen::MatrixXi(triangles_by_surface[surface_index]),
+                                          centroids,
+                                          wn);
+
+        for (auto i = 0; i < wn.size(); i++) {
+            if (wn(i) > 0.5) {
+                tet_tag_bitsets[i].flip(surface_index);
+            }
+        }
+    }
+
+    volume_attributes.clear();
+    volume_attributes.reserve(mesh.tets.size());
+    index = 0;
+    for (size_t i = 0; i < mesh.tets.size(); i++) {
+        if (mesh.tets[i].is_removed)
+            continue;
+        volume_attributes.push_back(tet_tag_bitsets[index++].to_ullong());
     }
 
     return 0;
