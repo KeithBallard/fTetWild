@@ -1356,7 +1356,7 @@ void floatTetWild::get_tracked_surface(Mesh& mesh, Eigen::Matrix<Scalar, Eigen::
         if (t.is_removed)
             continue;
         for (int j = 0; j < 4; j++) {
-            if (SF_CONDITION)
+            if (t.is_surface_fs[j] <= 0 && t.surface_tags[j] == c_id)
                 cnt++;
         }
     }

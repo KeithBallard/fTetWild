@@ -20,4 +20,11 @@ int tetrahedralization(GEO::Mesh&       sf_mesh,
                        int              boolean_op    = -1,
                        bool             skip_simplify = false);
 
-}
+int tetrahedralization(const std::vector<Eigen::MatrixXd>&  vertices_by_surface,
+                       const std::vector<Eigen::MatrixX3i>& triangles_by_surface,
+                       Parameters                           params,
+                       Eigen::MatrixXd&                     volume_vertices,
+                       Eigen::MatrixXi&                     volume_tetrahedra,
+                       std::vector<unsigned long long>&     volume_attributes);
+
+}  // namespace floatTetWild
