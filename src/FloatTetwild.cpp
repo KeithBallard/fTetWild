@@ -28,17 +28,33 @@
 namespace floatTetWild {
 
 int tetrahedralization_kernel(GEO::Mesh&       sf_mesh,        // in (modified)
-                              std::vector<int> input_tags,     // in
+                              std::vector<int>& input_tags,     // in
                               Parameters       params,         // in
                               int              boolean_op,     // in
                               bool             skip_simplify,  // in
                               Mesh&            mesh)                      // out
 {
+    // While reordering the surface mesh, track the ordering to apply to input_tags
+    if (input_tags.size() == sf_mesh.facets.nb()) {
+        GEO::Attribute<int> bflags(sf_mesh.facets.attributes(), "bbflags");
+        for (int index = 0; index < (int)sf_mesh.facets.nb(); ++index) {
+            bflags[index] = input_tags[index];
+        }
+    }
+
     if (!sf_mesh.facets.are_simplices()) {
         GEO::mesh_repair(
           sf_mesh, GEO::MeshRepairMode(GEO::MESH_REPAIR_TRIANGULATE | GEO::MESH_REPAIR_QUIET));
     }
     GEO::mesh_reorder(sf_mesh, GEO::MESH_ORDER_MORTON);
+
+    // Apply same reorder permutation to input tags
+    if (input_tags.size() == sf_mesh.facets.nb()) {
+        GEO::Attribute<int> bflags(sf_mesh.facets.attributes(), "bbflags");
+        for (int index = 0; index < (int)sf_mesh.facets.nb(); ++index) {
+            input_tags[index] = bflags[index];
+        }
+    }
 
     std::vector<Vector3>  input_vertices(sf_mesh.vertices.nb());
     std::vector<Vector3i> input_faces(sf_mesh.facets.nb());
@@ -146,6 +162,8 @@ int tetrahedralization_kernel(GEO::Mesh&       sf_mesh,        // in (modified)
     /////////////////////////////////
 
     timer.start();
+    correct_tracked_surface_orientation(mesh, tree);
+    logger().info("correct_tracked_surface_orientation done");
     if (boolean_op < 0) {
         //        filter_outside(mesh);
         if (params.smooth_open_boundary) {
@@ -246,7 +264,7 @@ int tetrahedralization(const std::vector<Eigen::MatrixXd>&  vertices_by_surface,
             p[1]         = vertices_by_surface[surface_index](i, 1);
             p[2]         = vertices_by_surface[surface_index](i, 2);
         }
-        vert_offsets.push_back(vertices_by_surface[surface_index].rows());
+        vert_offsets.push_back(vert_offsets.back() + vertices_by_surface[surface_index].rows());
     }
 
     Eigen::Index n_triangles = 0;
