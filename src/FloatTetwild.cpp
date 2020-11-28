@@ -22,17 +22,18 @@
 #include <floattetwild/FastWindingNumber.hpp>
 #include <floattetwild/Logger.hpp>
 #include <floattetwild/MeshIO.hpp>
+#include <floattetwild/Predicates.hpp>
 #include <floattetwild/Types.hpp>
 #include <fstream>
 
 namespace floatTetWild {
 
-int tetrahedralization_kernel(GEO::Mesh&       sf_mesh,        // in (modified)
+int tetrahedralization_kernel(GEO::Mesh&        sf_mesh,        // in (modified)
                               std::vector<int>& input_tags,     // in
-                              Parameters       params,         // in
-                              int              boolean_op,     // in
-                              bool             skip_simplify,  // in
-                              Mesh&            mesh)                      // out
+                              Parameters        params,         // in
+                              int               boolean_op,     // in
+                              bool              skip_simplify,  // in
+                              Mesh&             mesh)                       // out
 {
     // While reordering the surface mesh, track the ordering to apply to input_tags
     if (input_tags.size() == sf_mesh.facets.nb()) {
@@ -242,6 +243,7 @@ int tetrahedralization(const std::vector<Eigen::MatrixXd>&  vertices_by_surface,
                        Eigen::MatrixXd&                     volume_vertices,
                        Eigen::MatrixXi&                     volume_tetrahedra,
                        std::vector<unsigned long long>&     volume_attributes)
+                       //std::vector<Eigen::MatrixX3i>&       tracked_triangles_by_surface)
 {
     GEO::initialize();
 
@@ -332,6 +334,67 @@ int tetrahedralization(const std::vector<Eigen::MatrixXd>&  vertices_by_surface,
             continue;
         volume_attributes.push_back(tet_tag_bitsets[index++].to_ullong());
     }
+
+    // Extract the surface triangles for each input surface
+    /*
+    std::vector<int> nonfiltered_to_filtered_vert_map(mesh.tet_vertices.size(), 0);
+    index = 0;
+    for (size_t i = 0; i < mesh.tet_vertices.size(); ++i) {
+        if (mesh.tet_vertices[i].is_removed) {
+            continue;
+        }
+        nonfiltered_to_filtered_vert_map[i] = index;
+        index++;
+    }
+    std::vector<int> counts_by_surface(n_surfaces, 0);
+    for (auto& t : mesh.tets) {
+        if (t.is_removed)
+            continue;
+        for (int face_index = 0; face_index < 4; face_index++) {
+            if (t.is_surface_fs[face_index] != NOT_SURFACE) {
+                counts_by_surface[t.surface_tags[face_index]]++;
+            }
+        }
+    }
+    tracked_triangles_by_surface.resize(n_surfaces);
+    for (auto surface_index = 0; surface_index < n_surfaces; surface_index++) {
+        tracked_triangles_by_surface[surface_index].resize(counts_by_surface[surface_index], 3);
+        counts_by_surface[surface_index] = 0;
+    }
+    for (auto& t : mesh.tets) {
+        if (t.is_removed) {
+            continue;
+        }
+        for (int face_index = 0; face_index < 4; face_index++) {
+            if (t.is_surface_fs[face_index] != NOT_SURFACE) {
+                auto& surface_index = t.surface_tags[face_index];
+                auto& v_1           = t[mod4(face_index + 1)];
+                auto& v_2           = t[mod4(face_index + 2)];
+                auto& v_3           = t[mod4(face_index + 3)];
+                auto& filtered_1    = nonfiltered_to_filtered_vert_map[v_1];
+                auto& filtered_2    = nonfiltered_to_filtered_vert_map[v_2];
+                auto& filtered_3    = nonfiltered_to_filtered_vert_map[v_3];
+
+                if (Predicates::orient_3d(mesh.tet_vertices[v_1].pos,
+                                          mesh.tet_vertices[v_2].pos,
+                                          mesh.tet_vertices[v_3].pos,
+                                          mesh.tet_vertices[t[face_index]].pos) ==
+                    Predicates::ORI_POSITIVE) {
+                    tracked_triangles_by_surface[surface_index].row(
+                      counts_by_surface[surface_index]++)
+                      << filtered_1,
+                      filtered_3, filtered_2;
+                }
+                else {
+                    tracked_triangles_by_surface[surface_index].row(
+                      counts_by_surface[surface_index]++)
+                      << filtered_1,
+                      filtered_2, filtered_3;
+                }
+            }
+        }
+    }
+    */
 
     return 0;
 }
