@@ -45,7 +45,7 @@ namespace floatTetWild {
                        std::vector<std::array<std::vector<int>, 4>> &new_track_surface_fs,
                        std::vector<int> &modified_t_ids, bool is_again);
 
-    void simplify_subdivision_result(int insert_f_id, int input_v_size, Mesh &mesh, AABBWrapper &tree,
+    void simplify_subdivision_result(int insert_f_id, int input_v_size, Mesh &mesh, const AABBWrapper &tree,
                                      std::vector<std::array<std::vector<int>, 4>> &track_surface_fs);
 
     ///face
@@ -59,7 +59,7 @@ namespace floatTetWild {
     bool insert_one_triangle(int f_id, const std::vector<Vector3> &input_vertices,
                              const std::vector<Vector3i> &input_faces, const std::vector<int> &input_tags,
                              Mesh &mesh, std::vector<std::array<std::vector<int>, 4>> &track_surface_fs,
-                             AABBWrapper &tree, bool is_again);
+                             const AABBWrapper &tree, bool is_again);
 
     void
     find_cutting_tets(int f_id, const std::vector<Vector3> &input_vertices, const std::vector<Vector3i> &input_faces,
@@ -111,7 +111,7 @@ namespace floatTetWild {
                          const std::vector<std::array<int, 3>> &known_surface_fs,
                          const std::vector<std::array<int, 3>> &known_not_surface_fs,
                          std::vector<std::array<int, 2>> &b_edges,
-                         Mesh &mesh, AABBWrapper &tree);
+                         Mesh &mesh, const AABBWrapper &tree);
 
     int get_opp_t_id(int t_id, int j, const Mesh &mesh);
 
