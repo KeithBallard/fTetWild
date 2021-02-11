@@ -567,7 +567,7 @@ bool floatTetWild::insert_multi_triangles(int insert_f_id, const std::vector<Vec
 bool floatTetWild::insert_one_triangle(int insert_f_id, const std::vector<Vector3> &input_vertices,
         const std::vector<Vector3i> &input_faces, const std::vector<int> &input_tags,
         Mesh &mesh, std::vector<std::array<std::vector<int>, 4>>& track_surface_fs,
-        AABBWrapper &tree, bool is_again) {
+        const AABBWrapper &tree, bool is_again) {
 //    igl::Timer timer;
     std::array<Vector3, 3> vs = {{input_vertices[input_faces[insert_f_id][0]],
                                          input_vertices[input_faces[insert_f_id][1]],
@@ -730,7 +730,7 @@ void floatTetWild::push_new_tets(Mesh &mesh, std::vector<std::array<std::vector<
 }
 
 #include <floattetwild/EdgeCollapsing.h>
-void floatTetWild::simplify_subdivision_result(int insert_f_id, int input_v_size, Mesh &mesh, AABBWrapper &tree,
+void floatTetWild::simplify_subdivision_result(int insert_f_id, int input_v_size, Mesh &mesh, const AABBWrapper &tree,
         std::vector<std::array<std::vector<int>, 4>> &track_surface_fs) {
     if(covered_tet_fs.empty())
         return;
@@ -2395,7 +2395,7 @@ void floatTetWild::mark_surface_fs(const std::vector<Vector3> &input_vertices, c
                                    const std::vector<std::array<int, 3>>& known_surface_fs,
                                    const std::vector<std::array<int, 3>>& known_not_surface_fs,
                                    std::vector<std::array<int, 2>>& b_edges,
-                                   Mesh &mesh, AABBWrapper &tree) {
+                                   Mesh &mesh, const AABBWrapper &tree) {
 
     auto is_on_bounded_side = [&](const std::array<Vector2, 3> &ps_2d, const Vector2 &c) {
         int cnt_pos = 0;
