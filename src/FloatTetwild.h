@@ -25,6 +25,7 @@ int tetrahedralization(const std::vector<Eigen::MatrixXd>&  vertices_by_surface,
                        Parameters                           params,
                        Eigen::MatrixXd&                     volume_vertices,
                        Eigen::MatrixXi&                     volume_tetrahedra,
-                       std::vector<unsigned long long>&     volume_attributes);
+                       std::vector<unsigned long long>&     volume_attributes,
+                       const bool                           skip_simplify);
 
 }  // namespace floatTetWild
