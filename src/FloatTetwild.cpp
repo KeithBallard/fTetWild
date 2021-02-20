@@ -242,8 +242,9 @@ int tetrahedralization(const std::vector<Eigen::MatrixXd>&  vertices_by_surface,
                        Parameters                           params,
                        Eigen::MatrixXd&                     volume_vertices,
                        Eigen::MatrixXi&                     volume_tetrahedra,
-                       std::vector<unsigned long long>&     volume_attributes)
-                       //std::vector<Eigen::MatrixX3i>&       tracked_triangles_by_surface)
+                       std::vector<unsigned long long>&     volume_attributes,
+                       const bool                           skip_simplify)
+// std::vector<Eigen::MatrixX3i>&       tracked_triangles_by_surface)
 {
     GEO::initialize();
 
@@ -289,7 +290,8 @@ int tetrahedralization(const std::vector<Eigen::MatrixXd>&  vertices_by_surface,
     }
 
     Mesh mesh;
-    int  return_code = tetrahedralization_kernel(sf_mesh, triangle_tags, params, -1, false, mesh);
+    int  return_code =
+      tetrahedralization_kernel(sf_mesh, triangle_tags, params, -1, skip_simplify, mesh);
 
     if (return_code != 0)
         return return_code;
