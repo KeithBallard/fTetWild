@@ -122,6 +122,7 @@ target_include_directories(${PROJECT_NAME} PUBLIC ${GMP_INCLUDE_DIRS})
 target_link_libraries(${PROJECT_NAME}
 	PUBLIC
 		igl::core
+		igl::cgal
 		geogram::geogram
 		spdlog::spdlog
 		Threads::Threads
@@ -233,7 +234,7 @@ install(FILES
 
 # Export just the library target (not executable, tests, etc.)
 export(
-    TARGETS ${PROJECT_NAME} warnings_all igl igl_common igl_eigen geogram spdlog fmt json tbb_static
+    TARGETS ${PROJECT_NAME} warnings_all igl igl_common igl_eigen igl_cgal CGAL CGAL_Core geogram spdlog fmt json tbb_static
     FILE ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Targets.cmake
     NAMESPACE ${PROJECT_NAME}::
 )
