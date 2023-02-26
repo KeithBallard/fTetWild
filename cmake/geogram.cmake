@@ -26,7 +26,12 @@ message(STATUS "Found Geogram here: ${GEOGRAM_ROOT}")
 if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
 	set(VORPALINE_ARCH_64 TRUE CACHE BOOL "" FORCE)
 	set(VORPALINE_PLATFORM Win-vs-generic CACHE STRING "" FORCE)
-	set(VORPALINE_BUILD_DYNAMIC false CACHE STRING "" FORCE)
+	# Forcing VORPALINE_BUILD_DYNAMIC to false for Windows will likely result
+	# in a mismatch in /MT and /MD flags.  I don't know the original intent, but
+	# the project defaults VORPALINE_BUILD_DYNAMIC to false, and fTetWild
+	# actually wants to set it to true for Windows (to match compilation flags
+	# for the other projects)
+	#set(VORPALINE_BUILD_DYNAMIC false CACHE STRING "" FORCE)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	set(VORPALINE_PLATFORM Linux64-gcc CACHE STRING "" FORCE)
 	set(VORPALINE_BUILD_DYNAMIC false CACHE STRING "" FORCE)

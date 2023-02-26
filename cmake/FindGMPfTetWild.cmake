@@ -3,6 +3,15 @@
 # GMP_INCLUDE_DIRS - the GMP include directory
 # GMP_LIBRARIES - Libraries needed to use GMP
 
+# libigl is a dependency of this project, and if it has already
+# been included, then it has it's own wrapper for GMP (since GMP
+# is not a CMake project). However, it uses the variable name
+# 'GMP_INCLUDES' instead of 'GMP_INCLUDE_DIRS'. To allow fTetWild
+# to reuse libigl's GMP wrapper, we assign the variable here.
+if (GMP_INCLUDES)
+	set(GMP_INCLUDE_DIRS "${GMP_INCLUDES}")
+endif()
+
 if (GMP_INCLUDE_DIRS AND GMP_LIBRARIES)
         # Already in cache, be silent
         set(GMP_FIND_QUIETLY TRUE)
