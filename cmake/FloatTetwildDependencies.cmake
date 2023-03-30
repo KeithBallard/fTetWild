@@ -51,7 +51,7 @@ endif()
 # Geogram
 if(NOT TARGET geogram::geogram)
 	float_tetwild_download_geogram()
-	set(VORPALINE_BUILD_DYNAMIC 1)
+	set(VORPALINE_BUILD_DYNAMIC 0)
 	include(geogram)
 endif()
 
