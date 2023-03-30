@@ -18,8 +18,8 @@
 #include <geogram/mesh/mesh_reorder.h>
 #include <geogram/mesh/mesh_repair.h>
 #include <igl/Timer.h>
+#include <igl/winding_number.h>
 #include <bitset>
-#include <floattetwild/FastWindingNumber.hpp>
 #include <floattetwild/Logger.hpp>
 #include <floattetwild/MeshIO.hpp>
 #include <floattetwild/Predicates.hpp>
@@ -237,6 +237,97 @@ int tetrahedralization(GEO::Mesh&       sf_mesh,
     return 0;
 }
 
+int tetrahedralization(const Eigen::MatrixXd&               all_vertices,
+                       const std::vector<Eigen::MatrixX3i>& triangles_by_surface,
+                       Parameters                           params,
+                       Eigen::MatrixXd&                     volume_vertices,
+                       Eigen::MatrixXi&                     volume_tetrahedra,
+                       std::vector<unsigned long long>&     volume_attributes,
+                       const bool                           skip_simplify)
+{
+    GEO::initialize();
+
+    GEO::Mesh sf_mesh;
+
+    auto n_surfaces = triangles_by_surface.size();
+
+    Eigen::Index n_vertices = all_vertices.rows();
+
+    int v = 0;
+    sf_mesh.vertices.create_vertices(n_vertices);
+    for (int i = 0; i < all_vertices.rows(); ++i) {
+        GEO::vec3& p = sf_mesh.vertices.point(v++);
+        p[0]         = all_vertices(i, 0);
+        p[1]         = all_vertices(i, 1);
+        p[2]         = all_vertices(i, 2);
+    }
+
+    Eigen::Index n_triangles = 0;
+    for (auto& triangles : triangles_by_surface) {
+        n_triangles += triangles.rows();
+    }
+
+    std::vector<int> triangle_tags(n_triangles, 0);
+    int              t = 0;
+    sf_mesh.facets.create_triangles(n_triangles);
+    for (auto surface_index = 0; surface_index < n_surfaces; surface_index++) {
+        for (int i = 0; i < triangles_by_surface[surface_index].rows(); ++i) {
+            sf_mesh.facets.set_vertex(t, 0, triangles_by_surface[surface_index](i, 0));
+            sf_mesh.facets.set_vertex(t, 1, triangles_by_surface[surface_index](i, 1));
+            sf_mesh.facets.set_vertex(t, 2, triangles_by_surface[surface_index](i, 2));
+            triangle_tags[t] = surface_index;
+            t++;
+        }
+    }
+
+    Mesh mesh;
+    int  return_code =
+      tetrahedralization_kernel(sf_mesh, triangle_tags, params, -1, skip_simplify, mesh);
+
+    if (return_code != 0)
+        return return_code;
+
+    MeshIO::extract_volume_mesh(mesh, volume_vertices, volume_tetrahedra, false);
+
+    assert(n_surfaces < std::numeric_limits<unsigned long long>::digits);
+    using RegionBitset = std::bitset<std::numeric_limits<unsigned long long>::digits>;
+
+    Eigen::MatrixXd centroids(mesh.get_t_num(), 3);
+    centroids.setZero();
+    int index = 0;
+    for (size_t i = 0; i < mesh.tets.size(); i++) {
+        if (mesh.tets[i].is_removed)
+            continue;
+        for (int j = 0; j < 4; j++)
+            centroids.row(index) += mesh.tet_vertices[mesh.tets[i][j]].pos.cast<double>();
+        centroids.row(index) /= 4.0;
+        index++;
+    }
+
+    std::vector<RegionBitset> tet_tag_bitsets(index);
+    for (auto surface_index = 0; surface_index < n_surfaces; surface_index++) {
+        Eigen::VectorXd wn;
+        igl::winding_number(all_vertices, triangles_by_surface[surface_index], centroids, wn);
+
+        for (auto i = 0; i < wn.size(); i++) {
+            if (wn(i) > 0.5) {
+                tet_tag_bitsets[i].flip(surface_index);
+            }
+        }
+    }
+
+    volume_attributes.clear();
+    volume_attributes.reserve(mesh.tets.size());
+    index = 0;
+    for (size_t i = 0; i < mesh.tets.size(); i++) {
+        if (mesh.tets[i].is_removed)
+            continue;
+        volume_attributes.push_back(tet_tag_bitsets[index++].to_ullong());
+    }
+
+    return 0;
+}
+
 int tetrahedralization(const std::vector<Eigen::MatrixXd>&  vertices_by_surface,
                        const std::vector<Eigen::MatrixX3i>& triangles_by_surface,
                        Parameters                           params,
@@ -244,7 +335,6 @@ int tetrahedralization(const std::vector<Eigen::MatrixXd>&  vertices_by_surface,
                        Eigen::MatrixXi&                     volume_tetrahedra,
                        std::vector<unsigned long long>&     volume_attributes,
                        const bool                           skip_simplify)
-// std::vector<Eigen::MatrixX3i>&       tracked_triangles_by_surface)
 {
     GEO::initialize();
 
@@ -316,10 +406,8 @@ int tetrahedralization(const std::vector<Eigen::MatrixXd>&  vertices_by_surface,
     std::vector<RegionBitset> tet_tag_bitsets(index);
     for (auto surface_index = 0; surface_index < n_surfaces; surface_index++) {
         Eigen::VectorXd wn;
-        floatTetWild::fast_winding_number(Eigen::MatrixXd(vertices_by_surface[surface_index]),
-                                          Eigen::MatrixXi(triangles_by_surface[surface_index]),
-                                          centroids,
-                                          wn);
+        igl::winding_number(
+          vertices_by_surface[surface_index], triangles_by_surface[surface_index], centroids, wn);
 
         for (auto i = 0; i < wn.size(); i++) {
             if (wn(i) > 0.5) {
@@ -336,67 +424,6 @@ int tetrahedralization(const std::vector<Eigen::MatrixXd>&  vertices_by_surface,
             continue;
         volume_attributes.push_back(tet_tag_bitsets[index++].to_ullong());
     }
-
-    // Extract the surface triangles for each input surface
-    /*
-    std::vector<int> nonfiltered_to_filtered_vert_map(mesh.tet_vertices.size(), 0);
-    index = 0;
-    for (size_t i = 0; i < mesh.tet_vertices.size(); ++i) {
-        if (mesh.tet_vertices[i].is_removed) {
-            continue;
-        }
-        nonfiltered_to_filtered_vert_map[i] = index;
-        index++;
-    }
-    std::vector<int> counts_by_surface(n_surfaces, 0);
-    for (auto& t : mesh.tets) {
-        if (t.is_removed)
-            continue;
-        for (int face_index = 0; face_index < 4; face_index++) {
-            if (t.is_surface_fs[face_index] != NOT_SURFACE) {
-                counts_by_surface[t.surface_tags[face_index]]++;
-            }
-        }
-    }
-    tracked_triangles_by_surface.resize(n_surfaces);
-    for (auto surface_index = 0; surface_index < n_surfaces; surface_index++) {
-        tracked_triangles_by_surface[surface_index].resize(counts_by_surface[surface_index], 3);
-        counts_by_surface[surface_index] = 0;
-    }
-    for (auto& t : mesh.tets) {
-        if (t.is_removed) {
-            continue;
-        }
-        for (int face_index = 0; face_index < 4; face_index++) {
-            if (t.is_surface_fs[face_index] != NOT_SURFACE) {
-                auto& surface_index = t.surface_tags[face_index];
-                auto& v_1           = t[mod4(face_index + 1)];
-                auto& v_2           = t[mod4(face_index + 2)];
-                auto& v_3           = t[mod4(face_index + 3)];
-                auto& filtered_1    = nonfiltered_to_filtered_vert_map[v_1];
-                auto& filtered_2    = nonfiltered_to_filtered_vert_map[v_2];
-                auto& filtered_3    = nonfiltered_to_filtered_vert_map[v_3];
-
-                if (Predicates::orient_3d(mesh.tet_vertices[v_1].pos,
-                                          mesh.tet_vertices[v_2].pos,
-                                          mesh.tet_vertices[v_3].pos,
-                                          mesh.tet_vertices[t[face_index]].pos) ==
-                    Predicates::ORI_POSITIVE) {
-                    tracked_triangles_by_surface[surface_index].row(
-                      counts_by_surface[surface_index]++)
-                      << filtered_1,
-                      filtered_3, filtered_2;
-                }
-                else {
-                    tracked_triangles_by_surface[surface_index].row(
-                      counts_by_surface[surface_index]++)
-                      << filtered_1,
-                      filtered_2, filtered_3;
-                }
-            }
-        }
-    }
-    */
 
     return 0;
 }
