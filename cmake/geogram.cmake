@@ -54,7 +54,10 @@ option(GEOGRAM_USE_SYSTEM_GLFW3 "Use the version of GLFW3 installed in the syste
 ################################################################################
 
 add_subdirectory(${GEOGRAM_ROOT} geogram)
-target_include_directories(geogram SYSTEM PUBLIC ${GEOGRAM_SOURCE_INCLUDE_DIR})
+target_include_directories(geogram SYSTEM PUBLIC
+    $<BUILD_INTERFACE:${GEOGRAM_SOURCE_INCLUDE_DIR}>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 	set_target_properties(geogram PROPERTIES COMPILE_FLAGS -fopenmp LINK_FLAGS -fopenmp)

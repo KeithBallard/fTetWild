@@ -34,7 +34,10 @@ if(NOT TARGET spdlog::spdlog)
 	# Create interface target
 	add_library(spdlog INTERFACE)
 	add_library(spdlog::spdlog ALIAS spdlog)
-	target_include_directories(spdlog INTERFACE ${FLOAT_TETWILD_EXTERNAL}/spdlog/include)
+	target_include_directories(spdlog INTERFACE
+		$<BUILD_INTERFACE:${FLOAT_TETWILD_EXTERNAL}/spdlog/include>
+		$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/spdlog/include>
+	)
 	target_link_libraries(spdlog INTERFACE fmt::fmt)
 	target_compile_definitions(spdlog INTERFACE SPDLOG_FMT_EXTERNAL)
 endif()
@@ -68,9 +71,9 @@ if(FLOAT_TETWILD_ENABLE_TBB AND NOT TARGET tbb::tbb)
 	set(TBB_NO_DATE ON CACHE BOOL " " FORCE)
 
 	add_subdirectory(${FLOAT_TETWILD_EXTERNAL}/tbb tbb)
-	set_target_properties(tbb_static PROPERTIES
-		INTERFACE_INCLUDE_DIRECTORIES "${FLOAT_TETWILD_EXTERNAL}/tbb/include"
-	)
+	#set_target_properties(tbb_static PROPERTIES
+    #	INTERFACE_INCLUDE_DIRECTORIES "${FLOAT_TETWILD_EXTERNAL}/tbb/include"
+	#)
 	if(NOT MSVC)
 		set_target_properties(tbb_static PROPERTIES
 			COMPILE_FLAGS "-Wno-implicit-fallthrough -Wno-missing-field-initializers -Wno-unused-parameter -Wno-keyword-macro"
@@ -88,7 +91,10 @@ find_package(Threads REQUIRED)
 if(NOT TARGET json)
 	float_tetwild_download_json()
 	add_library(json INTERFACE)
-	target_include_directories(json SYSTEM INTERFACE ${FLOAT_TETWILD_EXTERNAL}/json/include)
+	target_include_directories(json SYSTEM INTERFACE
+		$<BUILD_INTERFACE:${FLOAT_TETWILD_EXTERNAL}/json/include>
+		$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/json/include>
+	)
 endif()
 
 

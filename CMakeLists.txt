@@ -1,6 +1,7 @@
 ################################################################################
 cmake_minimum_required(VERSION 3.8)
-project(FloatTetwild)
+cmake_policy(SET CMP0048 NEW)
+project(FloatTetwild VERSION 1.0)
 ################################################################################
 
 # Detects whether this is a top-level project
@@ -90,7 +91,11 @@ ENDIF()
 add_library(${PROJECT_NAME} src/Logger.cpp src/external/WindingNumber.h)
 
 # Public include directory for FloatTetwild
-target_include_directories(${PROJECT_NAME} PUBLIC ${PROJECT_BINARY_DIR}/include)
+include(GNUInstallDirs)
+target_include_directories(${PROJECT_NAME} PUBLIC
+    $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
 
 # set(MESH_PATH "${CMAKE_CURRENT_SOURCE_DIR}/tests/")
 # target_compile_definitions(${PROJECT_NAME} PUBLIC -DFLOAT_TETWILD_MESH_PATH=\"${MESH_PATH}\")
@@ -117,7 +122,10 @@ if(FLOAT_TETWILD_USE_FLOAT)
 	target_compile_definitions(${PROJECT_NAME} PUBLIC -DFLOAT_TETWILD_USE_FLOAT)
 endif()
 
-target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC ${GMP_INCLUDE_DIRS})
+target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
+    $<BUILD_INTERFACE:${GMP_INCLUDE_DIRS}>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
 
 target_link_libraries(${PROJECT_NAME}
 	PUBLIC
@@ -186,3 +194,64 @@ if(FLOAT_TETWILD_TOPLEVEL_PROJECT)
 	enable_testing()
 	add_subdirectory(tests)
 endif()
+
+
+################################################################################
+# Installation
+################################################################################
+
+# Install the target (library and headers)
+install(
+    TARGETS FloatTetwild geogram spdlog warnings_all json tbb_static fmt
+    EXPORT ${PROJECT_NAME}-targets
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    INCLUDES DESTINATION include
+    PUBLIC_HEADER DESTINATION include
+)
+
+# Install header files
+install(
+    DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/
+    TYPE INCLUDE
+    FILES_MATCHING
+    PATTERN "*.h"
+)
+
+include(CMakePackageConfigHelpers)
+
+# Generate the version file for the config file
+write_basic_package_version_file(
+  ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake
+  VERSION ${PROJECT_VERSION}
+  COMPATIBILITY SameMajorVersion
+)
+
+# create config file
+configure_package_config_file(
+  ${CMAKE_CURRENT_LIST_DIR}/cmake/${PROJECT_NAME}Config.cmake.in # in
+  ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake # out in build
+  INSTALL_DESTINATION lib/cmake/${PROJECT_NAME} # out for install
+  NO_CHECK_REQUIRED_COMPONENTS_MACRO
+)
+
+install(
+  EXPORT ${PROJECT_NAME}-targets
+  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+  FILE ${PROJECT_NAME}-targets.cmake
+)
+
+# Generate the export targets for the build tree.
+# Note: The file created by this command is specific to the build
+# tree and should never be installed!
+export(
+  EXPORT ${PROJECT_NAME}-targets
+  FILE ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-targets.cmake
+)
+
+# Install CMake project config files
+install(
+  FILES ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}Config.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake
+  DESTINATION lib/cmake/${PROJECT_NAME}
+)

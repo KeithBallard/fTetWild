@@ -97,7 +97,7 @@ function(float_tetwild_download_geogram)
 #            GIT_TAG        b613750341a6cdd31ae8df80ecfc26ac7ca1a6ad
             # Provides a patch to v1.8.3 for MSVC:
             GIT_REPOSITORY https://github.com/KeithBallard/geogram.git
-            GIT_TAG        3287287
+            GIT_TAG        e2f954a
     )
 endfunction()
 
