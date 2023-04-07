@@ -25,6 +25,8 @@ endif()
 if(NOT TARGET fmt::fmt)
 	float_tetwild_download_fmt()
 	add_subdirectory(${FLOAT_TETWILD_EXTERNAL}/fmt)
+	# Place target in folder for IDEs
+	set_target_properties(fmt PROPERTIES FOLDER ${PROJECT_NAME})
 endif()
 
 # spdlog
@@ -81,6 +83,11 @@ if(FLOAT_TETWILD_ENABLE_TBB AND NOT TARGET tbb::tbb)
 		set_target_properties(tbb_static PROPERTIES POSITION_INDEPENDENT_CODE ON)
 	endif()
 	add_library(tbb::tbb ALIAS tbb_static)
+
+	# Place target in folder for IDEs
+	set_target_properties(tbb_static PROPERTIES FOLDER ${PROJECT_NAME})
+	set_target_properties(tbb_def_files PROPERTIES FOLDER ${PROJECT_NAME})
+	set_target_properties(uninstall PROPERTIES FOLDER ${PROJECT_NAME})
 endif()
 
 # C++11 threads

@@ -114,6 +114,9 @@ if(FLOAT_TETWILD_WITH_SANITIZERS)
 	add_sanitizers(${PROJECT_NAME})
 endif()
 
+# Place target in folder for IDEs
+set_target_properties(${PROJECT_NAME} PROPERTIES FOLDER ${PROJECT_NAME})
+
 ################################################################################
 # Required libraries
 ################################################################################
